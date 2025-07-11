@@ -1,9 +1,3 @@
-/*
- * Grokness, a grok.com browser extension mod
- * Copyright (c) 2025 Prism and contributors
- * SPDX-License-Identifier: GPL-3.0-or-later
- */
-
 import tsPlugin from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 import stylistic from "@stylistic/eslint-plugin";
