@@ -1,0 +1,39 @@
+{
+    "name": "grokker",
+    "module": "index.ts",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "start": "bun run src/index.ts",
+        "lint": "bun eslint \"src/**/*.{ts,tsx,js,mjs}\"",
+        "lint:fix": "bun eslint \"src/**/*.{ts,tsx,js,mjs}\" --fix",
+        "clean": "bunx rimraf logs grok.db"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.30.1",
+        "@types/bun": "latest",
+        "@types/node": "^24.0.13",
+        "@types/node-fetch": "^2.6.12",
+        "@types/pino": "^7.0.5",
+        "eslint": "^9.30.1",
+        "globals": "^16.3.0",
+        "typescript-eslint": "^8.36.0",
+        "rimraf": "^5.0.10"
+    },
+    "peerDependencies": {
+        "typescript": "^5.8.3"
+    },
+    "dependencies": {
+        "@stylistic/eslint-plugin": "^5.1.0",
+        "@typescript-eslint/eslint-plugin": "^8.36.0",
+        "@typescript-eslint/parser": "^8.36.0",
+        "discord.js": "^14.21.0",
+        "dotenv": "^17.2.0",
+        "eslint-plugin-path-alias": "^2.1.0",
+        "eslint-plugin-react": "^7.37.5",
+        "eslint-plugin-simple-header": "^1.2.2",
+        "eslint-plugin-simple-import-sort": "^12.1.1",
+        "eslint-plugin-unused-imports": "^4.1.4",
+        "node-fetch": "^3.3.2"
+    }
+}
