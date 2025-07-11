@@ -54,4 +54,4 @@ A minimalistic bot that monitors updates to [grok.com](https://grok.com) and not
 
 ---
 
-Licensed under the [MIT License](LICENSE).
+Licensed under the [GNU GPL v3 License](LICENSE).
