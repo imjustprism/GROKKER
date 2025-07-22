@@ -18,26 +18,34 @@ const notifier = new DiscordNotifier(
 );
 
 async function performCheck(channel: TextChannel): Promise<void> {
-    logger.debug("Initiating performCheck");
     const newVersion = await checker.checkForUpdate();
     if (newVersion) {
-        await notifier.notify(
-            channel,
-            `🔄 **Grok** has been updated to a new version.`
-        );
+        try {
+            await notifier.notify(
+                channel,
+                `🔄 **Grok** has been updated to a new version.`
+            );
+        } catch (err) {
+            logger.error({ err }, "Failed to send notification");
+        }
     }
 }
 
 notifier.onReady(async (channel: TextChannel) => {
-    logger.info("Bot ready, performing initial check");
     await performCheck(channel);
-    logger.info(`Scheduling checks every ${config.checkIntervalMs / 1000}s`);
     setInterval(async () => {
-        logger.debug("Scheduled check triggered");
-        await performCheck(channel);
+        try {
+            await performCheck(channel);
+        } catch (err) {
+            logger.error({ err }, "Error in scheduled check");
+        }
     }, config.checkIntervalMs);
 });
 
 process.on("unhandledRejection", (reason) => {
     logger.error({ reason }, "Unhandled Rejection");
+});
+
+process.on("uncaughtException", (err, origin) => {
+    logger.error({ err, origin }, "Uncaught Exception");
 });

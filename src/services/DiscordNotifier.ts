@@ -22,30 +22,43 @@ export class DiscordNotifier {
         private readonly channelId: string
     ) {
         this.client = new Client({ intents: [GatewayIntentBits.Guilds] });
-        this.client.login(this.token).catch((err) => {
-            logger.fatal({ err }, "Discord login failed");
-        });
+        this.client.on('error', (err) => logger.error({ err }, 'Discord client error'));
+        this.client.on('warn', (warning) => logger.warn({ warning }, 'Discord client warning'));
+        this.client.rest.on('rateLimited', (info) => logger.warn({ info }, 'Discord REST rate limited'));
+        this.loginWithRetry();
+    }
+
+    private async loginWithRetry(): Promise<void> {
+        let attempts = 0;
+        const maxAttempts = 5;
+        while (attempts < maxAttempts) {
+            try {
+                await this.client.login(this.token);
+                return;
+            } catch (err) {
+                attempts++;
+                logger.error({ err, attempts }, `Discord login failed, retrying in 10 seconds (attempt ${attempts}/${maxAttempts})`);
+                await new Promise(resolve => setTimeout(resolve, 10000));
+            }
+        }
+        logger.fatal("Discord login failed after maximum attempts");
     }
 
     onReady(callback: (channel: TextChannel) => Promise<void>): void {
         this.client.once("ready", async () => {
-            logger.info(
-                { user: this.client.user?.tag },
-                "Discord client ready"
-            );
-            const guild = await this.client.guilds.fetch(this.guildId);
-            const channel = (await guild.channels.fetch(
-                this.channelId
-            )) as TextChannel;
-
-            await this.client.user?.setActivity("Grok updates", {
-                type: ActivityType.Watching,
-            } as ActivitiesOptions);
-
             try {
+                const guild = await this.client.guilds.fetch(this.guildId);
+                const channel = (await guild.channels.fetch(
+                    this.channelId
+                )) as TextChannel;
+
+                await this.client.user?.setActivity("Grok updates", {
+                    type: ActivityType.Watching,
+                } as ActivitiesOptions);
+
                 await callback(channel);
             } catch (err) {
-                logger.error({ err }, "Error in onReady callback");
+                logger.error({ err }, "Error in ready handler");
             }
         });
     }

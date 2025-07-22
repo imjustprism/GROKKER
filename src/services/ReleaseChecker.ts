@@ -7,36 +7,45 @@
 import { SENTRY_RELEASE_REGEX } from "@utils/constants";
 import { databaseService } from "@utils/db";
 import { logger } from "@utils/logger";
-import fetch from "node-fetch";
+
+async function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(url: string, retries: number = 3, initialDelay: number = 1000): Promise<Response> {
+    let delay = initialDelay;
+    for (let i = 0; i < retries; i++) {
+        try {
+            const res = await fetch(url);
+            if (res.ok) {
+                return res;
+            } else {
+                throw new Error(`Fetch failed with status ${res.status}`);
+            }
+        } catch (err) {
+            if (i === retries - 1) {
+                throw err;
+            }
+            logger.warn({ err, url, attempt: i + 1 }, "Fetch attempt failed, retrying");
+            await sleep(delay);
+            delay *= 2; // Exponential backoff
+        }
+    }
+    throw new Error("Unreachable code");
+}
 
 export class ReleaseChecker {
-    constructor(private readonly targetUrl: string) {}
+    constructor(private readonly targetUrl: string) { }
 
     async checkForUpdate(): Promise<string | null> {
-        logger.debug({ targetUrl: this.targetUrl }, "Starting release check");
         const previousVersion = databaseService.getLastVersion();
-        logger.debug({ previousVersion }, "Previous stored version");
 
         let bundleUrl: string;
         let foundRelease: string | null = null;
 
         try {
-            const indexRes = await fetch(this.targetUrl);
-            if (!indexRes.ok) {
-                logger.error(
-                    {
-                        status: indexRes.status,
-                        statusText: indexRes.statusText,
-                    },
-                    "Failed to fetch index page"
-                );
-                return null;
-            }
+            const indexRes = await fetchWithRetry(this.targetUrl);
             const indexHtml = await indexRes.text();
-            logger.debug(
-                { length: indexHtml.length },
-                "Fetched index.html length"
-            );
 
             const scriptSrcs: string[] = [];
             for (const match of indexHtml.matchAll(
@@ -47,7 +56,6 @@ export class ReleaseChecker {
                     scriptSrcs.push(src);
                 }
             }
-            logger.debug({ scriptSrcs }, "Discovered <script> tags");
 
             const mainScript = scriptSrcs.find((src) =>
                 /main.*\.js$/i.test(src)
@@ -60,53 +68,25 @@ export class ReleaseChecker {
                 return null;
             }
             bundleUrl = new URL(mainScript, this.targetUrl).toString();
-            logger.debug({ bundleUrl }, "Resolved main JS bundle URL");
 
-            const bundleRes = await fetch(bundleUrl);
-            if (!bundleRes.ok) {
-                logger.error(
-                    {
-                        status: bundleRes.status,
-                        statusText: bundleRes.statusText,
-                    },
-                    "Failed to fetch main JS bundle"
-                );
-                return null;
-            }
+            const bundleRes = await fetchWithRetry(bundleUrl);
             const bundleText = await bundleRes.text();
-            logger.debug({ length: bundleText.length }, "Fetched bundle text");
-
-            const idx = bundleText.search(/release/i);
-            if (idx >= 0) {
-                const snippet = bundleText.slice(
-                    Math.max(0, idx - 100),
-                    idx + 100
-                );
-                logger.trace({ snippet }, "Bundle snippet around “release”");
-            }
 
             const match = bundleText.match(SENTRY_RELEASE_REGEX);
             foundRelease = match ? match[1] ?? match[2] ?? null : null;
-            logger.debug({ foundRelease }, "Extracted Sentry release ID");
         } catch (err) {
             logger.error({ err }, "Unexpected error during fetch/parsing");
             return null;
         }
 
         if (!foundRelease) {
-            logger.info("No Sentry release ID found in bundle");
             return null;
         }
         if (foundRelease === previousVersion) {
-            logger.info({ previousVersion }, "Version unchanged");
             return null;
         }
 
         databaseService.setLastVersion(foundRelease);
-        logger.info(
-            { oldVersion: previousVersion, newVersion: foundRelease },
-            "New version detected"
-        );
         return foundRelease;
     }
 }

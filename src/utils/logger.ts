@@ -14,11 +14,11 @@ if (!fs.existsSync(logDir)) {
 }
 
 export const logger = pino({
-    level: process.env.LOG_LEVEL || "debug",
+    level: process.env.LOG_LEVEL || "warn",
     transport: {
         targets: [
             {
-                level: "debug",
+                level: "warn",
                 target: "pino/file",
                 options: {
                     destination: path.join(logDir, "app.log"),
